@@ -1,15 +1,44 @@
-function extend(dest, src1, src2) {
-  var props = Object.keys(src1)
-  for (var i = 0, l = props.length; i < l; i++) {
-    dest[props[i]] = src1[props[i]]
-  }
-  if (src2) {
-    props = Object.keys(src2)
-    for (i = 0, l = props.length; i < l; i++) {
-      dest[props[i]] = src2[props[i]]
+function extend(dest, ...sources) {
+  const visited = new WeakMap();
+
+  function extendInternal(dest, source) {
+    if (source === null || typeof source !== 'object') {
+      return source;
     }
+
+    if (visited.has(source)) {
+      return visited.get(source);
+    }
+
+    let result = Array.isArray(source) ? [...source] : { ...dest };
+    visited.set(source, result);
+
+    Object.keys(source).forEach(key => {
+      const sourceValue = source[key];
+      if (sourceValue === source) {
+        result[key] = result; // Handle self-referential structures
+      } else if (visited.has(sourceValue)) {
+        result[key] = visited.get(sourceValue);
+      } else if (typeof sourceValue === 'object' && sourceValue !== null) {
+        if (typeof dest[key] === 'object' && dest[key] !== null && !Array.isArray(sourceValue)) {
+          result[key] = extendInternal(dest[key], sourceValue);
+        } else {
+          result[key] = extendInternal({}, sourceValue);
+        }
+      } else {
+        result[key] = sourceValue;
+      }
+    });
+
+    return result;
   }
-  return dest
+
+  return sources.reduce((acc, source) => {
+    if (source == null) return acc;
+    const result = extendInternal(acc, source);
+    Object.assign(acc, result);
+    return acc;
+  }, dest);
 }
 
 export default extend
